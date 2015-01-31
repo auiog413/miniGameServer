@@ -29,12 +29,33 @@ class Payment extends MY_Controller {
          * 地址 api/payment/callback
          */
         public function callback () {
-                // AnySDK 分配的 private_key
-                $privateKey = settings(ANYSDK_PAY_KEY);
-                
                 $params = $_POST;
                 foreach ($params as $key => $value) {
                         $params[$key] = $value;
+                }
+                
+                // 通过private_data获取游戏
+                // private_data 透传格式
+                $private_data = $params['private_data'];
+                $private_data_arr = explode('|', $private_data, 2);
+                
+                $game = $private_data_arr[0];
+                $games = settings('games');
+                $game_config = $games[$game];
+                
+                // 游戏数据不存在
+                if (empty($game_config)) {
+                        // AnySDK 分配的 private_key
+                        $privateKey = settings(ANYSDK_PAY_KEY);
+                        
+                        // AnySDK 分配的 增强密钥
+                        $enhancedKey = settings(ANYSDK_ENHANCED_KEY);
+                } else {
+                        // AnySDK 分配的 private_key
+                        $privateKey = $game_config['private_key'];
+                        
+                        // AnySDK 分配的 增强密钥
+                        $enhancedKey = $game_config['enhanced_key'];
                 }
                 
                 if (!$this->_checkSign($params, $privateKey)) {
@@ -42,8 +63,6 @@ class Payment extends MY_Controller {
                         return;
                 }
                 
-                // AnySDK 分配的 增强密钥
-                $enhancedKey = settings(ANYSDK_ENHANCED_KEY);
                 if (!$this->_checkEnhancedSign($params, $enhancedKey)) {
                         echo $this->_returnFailure . '_check_enhanced_sign';
                         return;

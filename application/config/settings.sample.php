@@ -28,4 +28,22 @@ return array (
   'anysdk_login_url'    => 'http://oauth.anysdk.com/api/User/LoginOauth/',
   'app_key'             => '',                  // 安装过程生成的app_key
   'app_secret'          => '',                  // 安装过程生成的app_secret
+  'games'               => array(
+      'game1'  => array(
+          'private_key'  => '',
+          'enhanced_key' => ''
+      ),
+      'game2' => array(
+          'private_key'  => '',
+          'enhanced_key' => ''
+      ),
+      'game3'     => array(
+          'private_key'  => '',
+          'enhanced_key' => ''
+      ),
+      'game4'      => array(
+          'private_key'  => '',
+          'enhanced_key' => ''
+      ),
+  )
 );
