@@ -9,7 +9,6 @@ class Pay_Notify_Mdl extends MY_Model {
         
         public function __construct() {
                 parent::__construct();
-                
         }
         
         /**
@@ -51,5 +50,33 @@ class Pay_Notify_Mdl extends MY_Model {
                 $this->db->insert($this->_table_prefix . self::TABLE, $insert);
                 
                 return $this->db->insert_id();
+        }
+        
+        public function get_order_can_process () {
+                
+                $sql = 'SELECT * FROM ' . $this->_table_prefix . self::TABLE 
+                        . ' WHERE `pay_status` = 1 AND `process_status` = 0 AND notify_times < 10';
+                
+                $query =  $this->db->query($sql);
+                $result = $query->result_array();
+                
+                if (empty($result)) {
+                        return array();
+                } else {
+                        return $result;
+                }
+        }
+        
+        /**
+         * 修改订单处理状态
+         * @param type $id
+         */
+        public function update_process_status_by_id ($id, $status = 0, $notify_times, $game_return) {
+                $this->db->where('id', $id);
+                $this->db->update($this->_table_prefix . self::TABLE, array(
+                        'process_status' => $status,
+                        'notify_times' => $notify_times,
+                        'game_return' => $game_return
+                ));
         }
 }

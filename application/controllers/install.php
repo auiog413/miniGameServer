@@ -304,7 +304,7 @@ class Install extends MY_Controller {
   `value` varchar(8192) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `name_index` (`name`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8 COMMENT=\"简单的 key => value 存储表\"");
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT=\"简单的 key => value 存储表\"");
                 $this->db->query("DROP TABLE IF EXISTS `{$table_prefix}pay_notify`");
                 $this->db->query("CREATE TABLE `{$table_prefix}pay_notify` (" . '`id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `order_id` char(50) NOT NULL DEFAULT "" COMMENT "订单号，anysdk产生的订单号",
@@ -326,7 +326,17 @@ class Install extends MY_Controller {
   `time` int(10) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `order_id_index` (`order_id`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8');
+) ENGINE=InnoDB DEFAULT CHARSET=utf8');
+                $this->db->query("DROP TABLE IF EXISTS `{$table_prefix}usersession`");
+                $this->db->query('CREATE TABLE `' . $table_prefix . 'usersession` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `uid` varchar(512) NOT NULL COMMENT "渠道用户id",
+  `channel_num` char(6) NOT NULL,
+  `anysdk_return` varchar(20480) NOT NULL,
+  `created_time` int(10) unsigned NOT NULL,
+  `updated_time` int(10) unsigned NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=MEMORY DEFAULT CHARSET=utf8');
                 
                 $table_create_success = $this->db->table_exists($table_prefix . 'pay_notify');
                 if (!$table_create_success) {

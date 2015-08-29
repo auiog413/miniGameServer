@@ -68,6 +68,7 @@ class Payment extends MY_Controller {
                         'product_id',
                         'private_data',
                         'channel_number',
+                        'channel_order_id',
                         'sign',
                         'source'
                 );
@@ -78,20 +79,25 @@ class Payment extends MY_Controller {
                         }
                 }
                 
-                // 将记录写入数据库
-                $insert = $params;
-                $insert['time'] = time();
-                $this->pay_notify_mdl->add($insert);
-                
-                // 先记日志后判断该返回的状态
-                
-                // 是否通知成功
+                // 是否通知成功过
                 $feedback_order = false;
+                // 写入数据库是否成功
                 $order_exists = $this->pay_notify_mdl->getSuccessfulNotifyByOrderId($params['order_id']);
                 if ($order_exists) {
                         $feedback_order = true;
+                } else {
+                        // 将记录写入数据库
+                        $insert = $params;
+                        // 失败订单直接把process_status设置成1
+                        $insert['process_status'] = ($params['pay_status'] == 1) ? 0: 1;
+                        $insert['time'] = time();
+                        $newid = $this->pay_notify_mdl->add($insert);
+                        if ($newid) {
+                                $feedback_order = true;
+                        }
                 }
                 
+                // 先记日志后判断该返回的状态
                 if ($feedback_order) {
                         echo $this->_returnSuccess;
                 } else {
@@ -112,15 +118,15 @@ class Payment extends MY_Controller {
                 $app_key = settings('app_key');
                 $app_secret = settings('app_secret');
                 
-                $order_id = trim($this->input->post('order_id'));
-                $time = trim($this->input->post('time'));
-                $sign = trim($this->input->post('sign'));
-                $ver  = trim($this->input->post('ver'));
+                $order_id = trim($this->input->get_post('order_id'));
+                $time = trim($this->input->get_post('time'));
+                $sign = trim($this->input->get_post('sign'));
+                $ver  = trim($this->input->get_post('ver'));
                 if (empty($ver)) {
                         $ver = 0;
                 }
 
-                $submit_app_key = trim($this->input->post('app_key'));
+                $submit_app_key = trim($this->input->get_post('app_key'));
 
                 if (empty($order_id)) {
                         echo json_encode(array('errno' => '101', 'errmsg' => 'order_id不能为空'));
@@ -235,5 +241,107 @@ class Payment extends MY_Controller {
                         return false;
                 }
                 return true;
+        }
+        
+        public function notify_game () {
+                $start = 0;
+                $this->_log_message('start cron; tl='.$start);
+                while(true){
+                        $notify_field = array(
+                                'order_id',
+                                'product_count',
+                                'amount',
+                                'pay_status',
+                                'pay_time',
+                                'user_id',
+                                'order_type',
+                                'game_user_id',
+                                'game_id',
+                                'server_id',
+                                'product_name',
+                                'product_id',
+                                'private_data',
+                                'channel_number'
+                        );
+
+                        $orders = $this->pay_notify_mdl->get_order_can_process();
+
+                        $orders_count = count($orders);
+                        
+                        $this->_log_message('has ' . $orders_count . ' orders to process; tl='.$start);
+                        
+                        foreach ($orders as $order) {
+
+                                $this->_log_message('processing ' . $order['order_id'] . '; tl='.$start);
+
+                                $post = $order;
+                                foreach ($post as $key => $value) {
+                                        if (!in_array($key, $notify_field)) {
+                                                unset($post[$key]);
+                                        }
+                                }
+                                $post['oper_id'] = '1';
+                                $post['sign'] = $this->_notify_game_sign($post);
+                                $ret = $this->_http_post($post);
+                                if (substr($ret, 0, 2) === 'ok') {
+                                // 游戏返回ok类响应（包括ok和ok.xxx类型的响应）或者通知次数大于10次的
+                                // if (substr($ret, 0, 2) === 'ok' || $order['notify_times'] > 10) {
+                                        $status = 1;
+                                } else {
+                                        $status = 0;
+                                }
+
+                                $this->_log_message('finish process ' . $order['order_id'] . ($order['notify_times'] + 1) . ' times by received ' . $ret . '; tl='.$start);
+
+                                $this->pay_notify_mdl->update_process_status_by_id($order['id'], $status, $order['notify_times']+1, $ret);
+                        }
+                        
+                        if ($start + 30 < 270) {
+                                $start += 30;
+                                $this->_log_message('sleep 30 seconds; tl='.$start);
+                                sleep(30);
+                        } else {
+                                $this->_log_message('stop cron; tl='.$start);
+                                break;
+                        }
+                }
+        }
+        
+        private function _log_message ($msg, $newline = false) {
+                $file = 'E:\\cron_log\\' . date('Ymd') . '.log';
+                $data = date('Y-m-d H:i:s ') . end(explode('.', microtime(true))) . '  ' . $msg . "\n";
+                if ($newline) {
+                        $data .= "\n";
+                }
+                file_put_contents($file, $data, FILE_APPEND);
+        }
+        
+        private function _http_post ($postfields) {
+                $url = 'http://139.219.129.242:20009';
+                
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $url);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+                curl_setopt($ch, CURLOPT_POST, 1);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, is_array($postfields) ? json_encode($postfields): $postfields);
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+                curl_setopt($ch, CURLOPT_USERAGENT, 'happyattack');
+                $output = curl_exec($ch);
+                curl_close($ch);
+
+                return $output;
+        }
+        
+        private function _notify_game_sign ($notify) {
+                $secret = 'wcBCSm1rYukaog79qO9zECZzronMNupZSl9HWvI';
+                
+                ksort($notify);
+                
+                $sign_str = implode($notify);
+                
+                $sign = md5($sign_str . $secret);
+                
+                return $sign;
         }
 }
