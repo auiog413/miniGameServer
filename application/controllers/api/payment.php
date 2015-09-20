@@ -229,6 +229,13 @@ class Payment extends MY_Controller {
                 return $sign;
         }
         
+        /**
+         * 验证AnySDK支付通知结果的增强签名
+         * 
+         * @param type $data
+         * @param type $enhancedKey
+         * @return boolean
+         */
         private function _checkEnhancedSign ($data, $enhancedKey) {
                 if (empty($data) || !isset($data['enhanced_sign']) || empty($enhancedKey)) {
                         return false;
@@ -243,8 +250,11 @@ class Payment extends MY_Controller {
                 return true;
         }
         
+        /**
+         * 异步通知游戏服务端
+         */
         public function notify_game () {
-                $start = 0;
+                $start = time();
                 $this->_log_message('start cron; tl='.$start);
                 while(true){
                         $notify_field = array(
@@ -296,10 +306,9 @@ class Payment extends MY_Controller {
                                 $this->pay_notify_mdl->update_process_status_by_id($order['id'], $status, $order['notify_times']+1, $ret);
                         }
                         
-                        if ($start + 30 < 270) {
-                                $start += 30;
-                                $this->_log_message('sleep 30 seconds; tl='.$start);
-                                sleep(30);
+                        if (time() - $start < 285) {
+                                $this->_log_message('sleep 3 seconds; tl='.$start);
+                                sleep(3);
                         } else {
                                 $this->_log_message('stop cron; tl='.$start);
                                 break;
@@ -307,6 +316,12 @@ class Payment extends MY_Controller {
                 }
         }
         
+        /**
+         * 记录计划任务（异步通知游戏服务端）日志
+         * 
+         * @param type $msg
+         * @param type $newline
+         */
         private function _log_message ($msg, $newline = false) {
                 $file = 'E:\\cron_log\\' . date('Ymd') . '.log';
                 $data = date('Y-m-d H:i:s ') . end(explode('.', microtime(true))) . '  ' . $msg . "\n";
@@ -316,8 +331,14 @@ class Payment extends MY_Controller {
                 file_put_contents($file, $data, FILE_APPEND);
         }
         
+        /**
+         * 发送http post请求
+         * 
+         * @param type $postfields
+         * @return type
+         */
         private function _http_post ($postfields) {
-                $url = 'http://139.219.129.242:20009';
+                $url = 'http://10.208.216.24:20009';
                 
                 $ch = curl_init();
                 curl_setopt($ch, CURLOPT_URL, $url);
@@ -328,13 +349,21 @@ class Payment extends MY_Controller {
                 curl_setopt($ch, CURLOPT_TIMEOUT, 30);
                 curl_setopt($ch, CURLOPT_USERAGENT, 'happyattack');
                 $output = curl_exec($ch);
+                $this->_log_message(var_export(curl_error($ch), true), true);
                 curl_close($ch);
 
                 return $output;
         }
         
+        /**
+         * 生成与游戏服务端通信的消息签名
+         * 
+         * @param type $notify
+         * @return type
+         */
         private function _notify_game_sign ($notify) {
-                $secret = 'wcBCSm1rYukaog79qO9zECZzronMNupZSl9HWvI';
+                // 读取安装miniGameServer的时候生成的app_secret参数
+                $secret = settings('app_secret');
                 
                 ksort($notify);
                 
