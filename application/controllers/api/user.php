@@ -42,6 +42,9 @@ class User extends MY_Controller {
                 //@todo在这里处理游戏逻辑，在服务器注册用户信息等
                 $result_arr = json_decode($result, true);
                 if ($result_arr['status'] === 'ok') {
+                        /**
+                         * 对登录成功的用户信息建立session信息
+                         */
                         $this->load->model('usersession_mdl');
                         $this->usersession_mdl->add(array(
                                 'uid' => $result_arr['common']['uid'],
@@ -58,6 +61,11 @@ class User extends MY_Controller {
                 $this->kp_counter('u');
         }
         
+        /**
+         * 查询用户session
+         * 
+         * @return type
+         */
         public function check_user_login () {
                 
                 // 验证 app_key 和 app_secret
