@@ -254,6 +254,12 @@ class Payment extends MY_Controller {
          * 异步通知游戏服务端
          */
         public function notify_game () {
+                /**
+                 * 这个只能从命令行或者windows计划任务或者linux cron调用
+                 */
+                if (!PHP_SAPI !== 'cli') {
+                        return ;
+                }
                 $start = time();
                 $this->_log_message('start cron; tl='.$start);
                 while(true){
